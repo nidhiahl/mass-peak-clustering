@@ -90,13 +90,16 @@ void iforest::computeLCA_lookup(){
 }
 
 double iforest::dissScoreComputation(int point1,int point2){
-	
+	//cout<<"dissSCore computation"<<endl;
 	double tempMass = 0;
 	int totalPoints = _dataObject.getnumInstances();
+	//cout<<"totlaPoints="<<totalPoints<<endl;
+	//cout<<"_iTrees.size()="<<_iTrees.size()<<endl;
 	for(int treeId = 0; treeId < _iTrees.size(); treeId++){
-				//cout<<"leafNodeforPoint1="<<_iTrees[treeId]->_pointToNode[point1];
+				//cout<<"
+				//cout<<"leafNodeforPoint1="<<_iTrees[treeId]->_pointToNode[point1]<<endl;
 				int leafNodeforPoint1 = _iTrees[treeId]->_pointToNode[point1];
-                //cout<<"leafNodeforPoint2="<<_iTrees[treeId]->_pointToNode[point2];
+                //cout<<"leafNodeforPoint2="<<_iTrees[treeId]->_pointToNode[point2]<<endl;
 				int leafNodeforPoint2 = _iTrees[treeId]->_pointToNode[point2];
                 //int LCAnodeforPoint1_Point2 = computeLCA(leafNodeforPoint1,leafNodeforPoint2);
                 int LCAnodeforPoint1_Point2 = leafNodeforPoint1>leafNodeforPoint2?LCA_lookup[leafNodeforPoint1][leafNodeforPoint2]:LCA_lookup[leafNodeforPoint2][leafNodeforPoint1];

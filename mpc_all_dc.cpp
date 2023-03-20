@@ -4,11 +4,34 @@
 #include "./iforest.cpp"
 #include "./mPeakClustering.cpp"
 
+
+void cc_included_in_top_x_percent(mPeakClustering* refdPObj,const string & dataset){
+	ofstream write_ccPosition_in_ordrho(dataset+"/intermediatefiles/mpc_ccPosition_in_ordrho.csv",ios::app|ios::binary);
+	if(!write_ccPosition_in_ordrho){
+		cout<<"Can not open input data file: intermediatefiles/mpc_ccPosition_in_ordrho.csv"<<endl;
+		exit(0);
+	}
+	double max=0;
+	for(auto cc: refdPObj->_clusterCenters){ 	
+		for(int i=0;i<refdPObj->_ordrho.size();i++){
+			if(cc==refdPObj->_ordrho[i].second && max<i){
+				max=i;
+			}
+		}
+	}
+	max/=refdPObj->_ordrho.size();
+	max*=100;
+	write_ccPosition_in_ordrho<<max<<endl;
+	write_ccPosition_in_ordrho.close();
+	
+}
+
+
 int main(int argc, char* argv[])      //(argv[1] = inputdataFile.csv , argv[2] = number of clusters
 {
 	srand(time(0));
 //read input from csv file
-	cout<<"Dc(%) Dc(MBD) dPTime matrixTime localdensityTime relativedistanceTime ccidentificationTime clusterassignTime"<<endl;
+	cout<<"Dc(%) Dc(distance) dPTime matrixTime localdensityTime relativedistanceTime ccidentificationTime clusterassignTime"<<endl;
 	const string dataset = argv[1];
 	
 	struct timespec start_dP,end_dP;
@@ -37,9 +60,11 @@ int main(int argc, char* argv[])      //(argv[1] = inputdataFile.csv , argv[2] =
 	iforest &refiForestObject = *iForestObject;
 	
 	iForestObject->constructiForest();
+	//cout<<"iforest constructin done"<<endl;
 	iForestObject->computeNodeMass();
+	//cout<<"nodemass computation done"<<endl;
 	iForestObject->computeMassMatrix(massMatrix);
-	
+	//cout<<"mass matrix coputation donae"<<endl;
 	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end_matrix);
     double matrixTime =  (((end_matrix.tv_sec - start_matrix.tv_sec) * 1e9)+(end_matrix.tv_nsec - start_matrix.tv_nsec))*1e-9;
 	//cout<<"MatrixTime="<<matrixTime<<endl;
@@ -83,6 +108,13 @@ int main(int argc, char* argv[])      //(argv[1] = inputdataFile.csv , argv[2] =
 	write_cId<<"pointid actual predicted"<<endl;
     write_cId.close();
 
+	ofstream write_ccPosition_in_ordrho(dataset+"/intermediatefiles/mpc_ccPosition_in_ordrho.csv",ios::out|ios::binary);
+	if(!write_ccPosition_in_ordrho){
+		cout<<"Can not open input data file: intermediatefiles/mpc_ccPosition_in_ordrho.csv"<<endl;
+		exit(0);
+	}
+
+	write_ccPosition_in_ordrho.close();
 	//cout<<"both cid an dhaloid files initialized"<<endl;
 
 	for(double Dc = 0.1; Dc < 100; Dc = Dc+0.1){
@@ -137,6 +169,9 @@ int main(int argc, char* argv[])      //(argv[1] = inputdataFile.csv , argv[2] =
 		write_clusterCenters.close();		
 		
 		//cout<<"cc identification done"<<endl;
+
+		cc_included_in_top_x_percent(mPeakObj,dataset);
+	
 
 //cluster assignment
 		struct timespec start_clusterassign,end_clusterassign;

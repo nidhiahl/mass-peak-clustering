@@ -63,7 +63,11 @@ mPeakClustering :: mPeakClustering(iforest &iForestObject,vector<vector<double>>
 	_maxDistance = 1;
 }
 
-
+/*mPeakClustering :: mPeakClustering(iforest &iForestObject, const double & Dc):iForestObject(iForestObject), _Dc(Dc){
+	_totalPoints = iForestObject._dataObject.getnumInstances();
+	_maxDistance = 1;
+}
+*/
 mPeakClustering::~mPeakClustering(){}
 
 
@@ -82,10 +86,10 @@ void mPeakClustering :: computeLocalMass(){
 
 
 
-// function to compute delta and nearest neighbour for every point 
+// function to compute delta and nearest neighbour with higher density for every point 
 void mPeakClustering:: computeRelativeDistance(){
 	for(int i = 0; i < _totalPoints; i++){
-		_rho[i]=_rho[i]/_totalPoints;
+		_rho[i]=_rho[i]*1.0/_totalPoints;
         _ordrho.push_back({_rho[i],i});
     }
 	sort(_ordrho.rbegin(),_ordrho.rend());
@@ -111,7 +115,8 @@ void mPeakClustering:: computeRelativeDistance(){
 		for(int j = 0;j < i; j++){
 			int pointj =_ordrho[j].second;
 			double dis = pointi > pointj ? _massMatrix[pointi][pointj] : _massMatrix[pointj][pointi];
-			if(dis < min){
+			//cout<<"dis="<<dis<<" min="<<min<<endl;			
+			if(dis <= min){
 				min = dis;
 				minNN = pointj;
             }
@@ -126,7 +131,7 @@ void mPeakClustering:: computeRelativeDistance(){
 
 
 
-
+//function to compute the potential mass based neighborhood(PMBN) given the dc/epsilon(cutoff distance)
 void mPeakClustering::find_potential_dcNN_list(){
 
 	_rho.resize(_totalPoints);
@@ -176,23 +181,24 @@ void mPeakClustering::find_potential_dcNN_list(){
 						count_distComputation++;
 						double dissScore = iForestObject.dissScoreComputation(pointi,neighborId);
 				
-						if(dissScore < _Dc){	
+						if(dissScore <= _Dc){	
 							count_qualifyingPairs++;
 							_rho[pointi]++;
 							_rho[neighborId]++;								
 						}
-						_potential_dcNN_list[pointi].insert(pair<int,double>(neighborId,dissScore));
-						_potential_dcNN_list[neighborId].insert(pair<int,double>(pointi,dissScore));
+						_potential_dcNN_list[pointi].push_back({dissScore, neighborId});
+						_potential_dcNN_list[neighborId].push_back({dissScore, pointi});
 					}
 				}
 			}
 		}
+		sort(_potential_dcNN_list.rbegin(),_potential_dcNN_list.rend());
 	}
 	cout<<"#Potential pairs"<<count_distComputation<<endl;
 	cout<<"#Qualifying pairs"<<count_qualifyingPairs<<endl;
 }
 
-
+//function to find the special nodes that contains the potential neighborhood points
 void mPeakClustering::find_markedNodes(treenode *node, vector<vector<char>> &mNodes , int DcPoints, int treeId)
 {
 	if(node->nodeMass <= DcPoints )
@@ -210,16 +216,78 @@ void mPeakClustering::find_markedNodes(treenode *node, vector<vector<char>> &mNo
 	}
 }
 
-
-
-
 void mPeakClustering::sRelativeDistance(){
+	_delta.resize(_totalPoints,1);
+    _nneigh.resize(_totalPoints,-1);
+	for(int i = 0; i < _totalPoints; i++){
+		//_rho[i] *=1.0/_totalPoitns;
+        _ordrho.push_back({_rho[i],i});
+    }
+	sort(_ordrho.rbegin(),_ordrho.rend());
+
+	_delta[_ordrho[0].second] = 1;
+	_nneigh[_ordrho[0].second] = _ordrho[0].second;
+	_rhodelta.push_back({_ordrho[0].first * 1,_ordrho[0].second});
+	_delta[_ordrho[1].second] = iForestObject.dissScoreComputation(_ordrho[0].second,_ordrho[1].second);
+	_nneigh[_ordrho[1].second] = _ordrho[0].second;
+	_rhodelta.push_back({_ordrho[1].first * _delta[_ordrho[1].second],_ordrho[1].second});
+
+	for(int point=1;point<_totalPoints; point++){
+		for(int neighbor=0;neighbor<_potential_dcNN_list[point].size();neighbor++){
+			auto neighborPoint = _potential_dcNN_list[point][neighbor];
+			if(_rho[point]<_rho[neighborPoint.second]){
+				_delta[point]=neighborPoint.first;
+				_nneigh[point]=neighborPoint.second;
+				neighbor=_potential_dcNN_list[point].size();
+			}
+		}
+	}
+}
+
+
+void mPeakClustering :: assignClusterId(int k){
+	_cId.resize(_totalPoints,0);
+	//_clusterCenters.resize(k);
+	int currentCid = 0;
+	for(int i=0;i<_totalPoints;i++){
+		int pointi=_ordrho[i].second;
+		if(_cId[pointi]==0 && currentCid <=k){
+			currentCid++;
+			_clusterCenters.push_back(pointi);
+			_cId[pointi]=currentCid;
+			developCluster(currentCid, pointi);
+		}
+	}
+}
+
+void mPeakClustering :: developCluster(int currentCid, int pointi){
+	for(int neighbor=0; neighbor<_rho[pointi]; neighbor++){
+		if(_cId[neighbor] != 0){
+			
+		}
+		else{
+			if(_nneigh[neighbor]==-1){
+				
+			}
+			else {
+				_cId[neighbor] == _cId[_nneigh[neighbor]];
+				if(_cId[neighbor]==currentCid){
+					developCluster(currentCid,neighbor);
+				}
+			}
+		}
+	}
+}
+
+
+//finds the nearesr neighbor with higer density for the scalable approach (sMPC)
+/*void mPeakClustering::sRelativeDistance(){
 	 _delta.resize(_totalPoints,0);
     _nneigh.resize(_totalPoints,-1);
 	//for_each(_rho.begin(), _rho.end(), [_totalPoints](double &c){ c /= _totalPoints; });
 	//_rhodelta.resize(_totalPoints);
 		for(int i = 0; i < _totalPoints; i++){
-        _ordrho.push_back({_rho[i]/_totalPoints,i});
+        _ordrho.push_back({_rho[i]*1.0/_totalPoints,i});
     }
 	sort(_ordrho.rbegin(),_ordrho.rend());
 	//cout<<"sRelative Distacne"<<endl;
@@ -271,7 +339,7 @@ void mPeakClustering::sRelativeDistance(){
 		_rhodelta.push_back({_ordrho[pointi].first*_delta[pointi],pointi});
 		
 	}
-}
+}*/
 
 
 
@@ -282,7 +350,10 @@ void mPeakClustering::sRelativeDistance(){
 void mPeakClustering :: find_k_clustercenters(int k){
 	sort(_rhodelta.rbegin(),_rhodelta.rend());
 	_clusterCenters.resize(0); 
+	//cout<<"cluster centre identification"<<endl;
 	for(int i = 0; i < k; i++){
+		//cout<<i<<"th cluster center="<<endl;
+		//cout<<_rhodelta[i].second<<endl;
 		_clusterCenters.push_back(_rhodelta[i].second);
 	}
 }
